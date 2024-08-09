@@ -15,5 +15,5 @@ interface IMerkleDistributor {
     // This event is triggered whenever a call to #claim succeeds.
     event Claimed(uint256 index, address account, uint256 amount);
 
-    event VestingCreated(uint256 index, address account, uint256 amount, address contract);
+    event VestingCreated(uint256 index, address account, uint256 amount, address vestingContract);
 }
