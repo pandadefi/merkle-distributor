@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity =0.8.17;
+pragma solidity =0.8.20;
 
-import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {IMerkleDistributor} from "./interfaces/IMerkleDistributor.sol";
+import {IERC20, SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import {MerkleProof} from '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
+import {IMerkleDistributor} from './interfaces/IMerkleDistributor.sol';
 
 error AlreadyClaimed();
 error InvalidProof();
 
-
 interface IVestingFactory {
-    function deploy_vesting_contract(address token,
-    address recipient,
-    uint256 amount,
-    uint256 vesting_duration,
-    uint256 vesting_start) external returns(address)
+    function deploy_vesting_contract(
+        address token,
+        address recipient,
+        uint256 amount,
+        uint256 vesting_duration,
+        uint256 vesting_start
+    ) external returns (address);
 }
 
 contract MerkleDistributor is IMerkleDistributor {
     using SafeERC20 for IERC20;
 
-    address public constant token;
+    address public immutable token;
     bytes32 public immutable override merkleRoot;
-    VestingFactory constant = IVestingFactory(0xcf61782465Ff973638143d6492B51A85986aB347);
+    IVestingFactory constant VestingFactory = IVestingFactory(0xcf61782465Ff973638143d6492B51A85986aB347);
     // This is a packed array of booleans.
     mapping(uint256 => uint256) private claimedBitMap;
     uint256 public startedAt;
@@ -48,11 +49,12 @@ contract MerkleDistributor is IMerkleDistributor {
         claimedBitMap[claimedWordIndex] = claimedBitMap[claimedWordIndex] | (1 << claimedBitIndex);
     }
 
-    function claim(uint256 index, address account, uint256 amount, bytes32[] calldata merkleProof)
-        public
-        virtual
-        override
-    {
+    function claim(
+        uint256 index,
+        address account,
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) public virtual override {
         if (isClaimed(index)) revert AlreadyClaimed();
 
         // Verify the merkle proof.
@@ -61,13 +63,19 @@ contract MerkleDistributor is IMerkleDistributor {
 
         // Mark it claimed and send the token.
         _setClaimed(index);
-        if (startedAt + duration > block.timestamp){
+        if (startedAt + duration > block.timestamp) {
             IERC20(token).safeTransfer(account, amount);
-        emit Claimed(index, account, amount);
+            emit Claimed(index, account, amount);
         } else {
-            IERC20(token).safeApprove(address(VestingFactory), amount);
-            address vestingContract = VestingFactory.deploy_vesting_contract(token, account, amount, duration, startedAt);
-            emit VestingCreated(index, account, amount, vestingContract)
+            IERC20(token).approve(address(VestingFactory), amount);
+            address vestingContract = VestingFactory.deploy_vesting_contract(
+                token,
+                account,
+                amount,
+                duration,
+                startedAt
+            );
+            emit VestingCreated(index, account, amount, vestingContract);
         }
     }
 }
