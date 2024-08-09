@@ -8,18 +8,30 @@ import {IMerkleDistributor} from "./interfaces/IMerkleDistributor.sol";
 error AlreadyClaimed();
 error InvalidProof();
 
+
+interface IVestingFactory {
+    function deploy_vesting_contract(address token,
+    address recipient,
+    uint256 amount,
+    uint256 vesting_duration,
+    uint256 vesting_start) external returns(address)
+}
+
 contract MerkleDistributor is IMerkleDistributor {
     using SafeERC20 for IERC20;
 
-    address public immutable override token;
+    address public constant token;
     bytes32 public immutable override merkleRoot;
-
+    VestingFactory constant = IVestingFactory(0xcf61782465Ff973638143d6492B51A85986aB347);
     // This is a packed array of booleans.
     mapping(uint256 => uint256) private claimedBitMap;
+    uint256 public startedAt;
+    uint256 constant duration = 86400 * 30 * 6;
 
     constructor(address token_, bytes32 merkleRoot_) {
         token = token_;
         merkleRoot = merkleRoot_;
+        startedAt = block.timestamp;
     }
 
     function isClaimed(uint256 index) public view override returns (bool) {
@@ -49,8 +61,13 @@ contract MerkleDistributor is IMerkleDistributor {
 
         // Mark it claimed and send the token.
         _setClaimed(index);
-        IERC20(token).safeTransfer(account, amount);
-
+        if (startedAt + duration > block.timestamp){
+            IERC20(token).safeTransfer(account, amount);
         emit Claimed(index, account, amount);
+        } else {
+            IERC20(token).safeApprove(address(VestingFactory), amount);
+            address vestingContract = VestingFactory.deploy_vesting_contract(token, account, amount, duration, startedAt);
+            emit VestingCreated(index, account, amount, vestingContract)
+        }
     }
 }
